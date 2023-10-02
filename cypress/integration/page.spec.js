@@ -657,6 +657,7 @@ describe('', () => {
 
         todos.assertCount(6);
         // todos.assertNotLoading(5);
+
         todos.assertNotCompleted(5);
         todos.assertTitle(5, 'Test Todo');
 
@@ -1680,7 +1681,6 @@ describe('', () => {
         it('should stay open on fail', () => {
           // to prevent Cypress from failing the test on uncaught exception
           cy.once('uncaught:exception', () => false);
-
           page.mockDelete(257334, { statusCode: 503 }).as('deleteRequest');
 
           todos.titleField(0).type('{enter}');
