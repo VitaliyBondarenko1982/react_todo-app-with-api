@@ -1,24 +1,28 @@
-/* eslint-disable max-len */
-/* eslint-disable jsx-a11y/control-has-associated-label */
-import React from 'react';
-import { UserWarning } from './UserWarning';
-
-const USER_ID = 0;
+import React, { useEffect } from 'react';
+import { ErrorNotification, Header, TodoList } from './components';
+import Footer from './components/Footer';
+import { TodosError } from './constants';
+import { getTodos } from './api/todos';
+import useTodosContext from './contexts/useTodosContext';
 
 export const App: React.FC = () => {
-  if (!USER_ID) {
-    return <UserWarning />;
-  }
+  const { todos, handleErrorMessage, setTodos } = useTodosContext();
+
+  useEffect(() => {
+    getTodos()
+      .then(loadedTodos => setTodos(loadedTodos))
+      .catch(handleErrorMessage(TodosError.LOAD_TODOS));
+  }, []);
 
   return (
-    <section className="section container">
-      <p className="title is-4">
-        Copy all you need from the prev task:
-        <br />
-        <a href="https://github.com/mate-academy/react_todo-app-add-and-delete#react-todo-app-add-and-delete">React Todo App - Add and Delete</a>
-      </p>
-
-      <p className="subtitle">Styles are already copied</p>
-    </section>
+    <div className="todoapp">
+      <h1 className="todoapp__title">todos</h1>
+      <div className="todoapp__content">
+        <Header />
+        <TodoList />
+        {!!todos.length && <Footer />}
+      </div>
+      <ErrorNotification />
+    </div>
   );
 };
