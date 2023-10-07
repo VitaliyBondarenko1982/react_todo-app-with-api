@@ -1,11 +1,9 @@
 import {
-  ChangeEvent, FC, KeyboardEvent, useEffect, useRef, useState,
+  ChangeEvent, FC, FormEvent, KeyboardEvent, useEffect, useRef, useState,
 } from 'react';
 import cn from 'classnames';
 import { Todo } from '../../types';
 import useTodosContext from '../../contexts/useTodosContext';
-import { deleteTodo, updateTodo } from '../../api/todos';
-import { TodosError } from '../../constants';
 
 interface Props {
   todo: Todo;
@@ -15,68 +13,38 @@ const TodoItem: FC<Props> = ({ todo }) => {
   const { title, completed, id } = todo;
   const {
     todosInProcess,
-    setTodosInProcess,
-    setTodos,
-    handleErrorMessage,
+    handleDeleteTodo,
+    handleUpdateTodo,
   } = useTodosContext();
 
   const [newTitle, setNewTitle] = useState(title);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const removeTodo = (todoId: number) => () => {
-    setTodosInProcess([todoId]);
-    deleteTodo(todoId)
-      .then(() => setTodos(
-        prevTodos => prevTodos.filter(t => t.id !== todoId),
-      ))
-      .catch(handleErrorMessage(TodosError.DELETE_TODO))
-      .finally(() => setTodosInProcess([]));
-  };
-
-  const handleCompleteTodo = () => {
-    setTodosInProcess([id]);
-
-    updateTodo(
-      id,
-      { ...todo, completed: !todo.completed },
-    )
-      .then(updatedTodo => {
-        setTodos(
-          prevTodos => prevTodos
-            .map(t => (t.id === id ? updatedTodo : t)),
-        );
-      })
-      .catch(handleErrorMessage(TodosError.UPDATE_TODO))
-      .finally(() => setTodosInProcess([]));
-  };
-
   const handleDoubleClick = () => setIsEditing(true);
 
+  const updateState = (updatedTitle?: string) => {
+    setIsEditing(false);
+
+    if (updatedTitle) {
+      setNewTitle(updatedTitle);
+    }
+  };
+
   const handleChangeTitle = () => {
-    if (title === newTitle) {
+    const trimmedNewTitle = newTitle.trim();
+
+    if (title === trimmedNewTitle) {
       setIsEditing(false);
 
       return;
     }
 
-    setTodosInProcess([id]);
-
-    updateTodo(
-      id,
-      { ...todo, title: newTitle },
-    )
-      .then(updatedTodo => {
-        setTodos(
-          prevTodos => prevTodos
-            .map(t => (t.id === id ? updatedTodo : t)),
-        );
-      })
-      .catch(handleErrorMessage(TodosError.UPDATE_TODO))
-      .finally(() => {
-        setTodosInProcess([]);
-        setIsEditing(false);
-      });
+    if (trimmedNewTitle) {
+      handleUpdateTodo({ ...todo, title: trimmedNewTitle }, updateState)();
+    } else {
+      handleDeleteTodo(id, updateState)();
+    }
   };
 
   const onChangeTitle = (event: ChangeEvent<HTMLInputElement>) => {
@@ -87,6 +55,8 @@ const TodoItem: FC<Props> = ({ todo }) => {
     handleChangeTitle();
   };
 
+  const onSubmit = (event: FormEvent) => event.preventDefault();
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       handleChangeTitle();
@@ -94,6 +64,7 @@ const TodoItem: FC<Props> = ({ todo }) => {
 
     if (event.key === 'Escape') {
       setIsEditing(false);
+      setNewTitle(title);
     }
   };
 
@@ -114,12 +85,14 @@ const TodoItem: FC<Props> = ({ todo }) => {
           type="checkbox"
           className="todo__status"
           checked={completed}
-          onChange={handleCompleteTodo}
+          onChange={handleUpdateTodo(
+            { ...todo, completed: !completed },
+          )}
         />
       </label>
 
       {isEditing ? (
-        <form>
+        <form onSubmit={onSubmit}>
           <input
             ref={inputRef}
             data-cy="TodoTitleField"
@@ -145,7 +118,7 @@ const TodoItem: FC<Props> = ({ todo }) => {
             type="button"
             className="todo__remove"
             data-cy="TodoDelete"
-            onClick={removeTodo(id)}
+            onClick={handleDeleteTodo(id)}
           >
             ×
           </button>

@@ -1,16 +1,23 @@
 import {
-  ChangeEvent, FormEvent, useContext,
-  useEffect, useRef, useState,
+  ChangeEvent, FormEvent, useContext, useEffect, useRef, useState,
 } from 'react';
+import cn from 'classnames';
 import { TodosContext } from '../../contexts/TodosContextProvider';
-import { TodosError } from '../../constants';
-import { addTodo, USER_ID } from '../../api/todos';
+import { getActiveTodos, getCompletedTodos } from '../../utils';
 
 const Header = () => {
   const {
-    todos, setTodos, errorMessage, handleErrorMessage,
-    setTempTodo, tempTodo,
+    todos,
+    errorMessage,
+    tempTodo,
+    handleAddTodo,
+    handleUpdateTodo,
   } = useContext(TodosContext);
+
+  const activeTodos = getActiveTodos(todos);
+  const completedTodos = getCompletedTodos(todos);
+  const isAllCompletedTodos = completedTodos.length === todos.length;
+
   const [query, setQuery] = useState('');
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -18,34 +25,21 @@ const Header = () => {
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!query.trim()) {
-      handleErrorMessage(TodosError.EMPTY_TITLE)();
-
-      return;
-    }
-
-    setTempTodo({
-      id: 0,
-      userId: USER_ID,
-      completed: false,
-      title: query.trim(),
-    });
-
-    addTodo(query.trim())
-      .then(response => {
-        setTodos(prevTodos => [...prevTodos, response]);
-        setQuery('');
-      })
-      .catch(() => {
-        handleErrorMessage(TodosError.ADD_TODO)();
-      })
-      .finally(() => {
-        setTempTodo(null);
-      });
+    handleAddTodo(query, setQuery);
   };
 
   const onChange = ({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
     setQuery(value);
+  };
+
+  const handleToggleTodos = () => {
+    const todosForUpdate = isAllCompletedTodos ? todos : activeTodos;
+
+    todosForUpdate
+      .forEach(todo => handleUpdateTodo({
+        ...todo,
+        completed: !todo.completed,
+      })());
   };
 
   useEffect(() => {
@@ -57,9 +51,10 @@ const Header = () => {
       {!!todos.length && (
         <button
           type="button"
-          className="todoapp__toggle-all active"
+          className={cn('todoapp__toggle-all', { active: isAllCompletedTodos })}
           data-cy="ToggleAllButton"
           aria-label="delete"
+          onClick={handleToggleTodos}
         />
       )}
 
