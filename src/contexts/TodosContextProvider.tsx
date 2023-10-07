@@ -1,33 +1,44 @@
 import {
-  createContext, Dispatch, FC, ReactNode, SetStateAction, useEffect, useState,
+  createContext, Dispatch, FC, ReactNode, SetStateAction, useState,
 } from 'react';
 import { TempTodo, Todo } from '../types';
 import { FilterStatus, TodosError } from '../constants';
 import { noop } from '../utils';
+import {
+  addTodo, deleteTodo, updateTodo, USER_ID,
+} from '../api/todos';
 
 export interface ITodosContext {
   todos: Todo[];
   setTodos: Dispatch<SetStateAction<Todo[]>>;
   tempTodo: TempTodo;
-  setTempTodo: Dispatch<SetStateAction<TempTodo>>;
   todosInProcess: number[];
-  setTodosInProcess: Dispatch<SetStateAction<number[]>>
   filter: FilterStatus;
   handleFilter: (filterStatus: FilterStatus) => VoidFunction;
   errorMessage: TodosError;
   handleErrorMessage: (message: TodosError) => VoidFunction;
+  handleAddTodo: (
+    query: string,
+    setQuery: Dispatch<SetStateAction<string>>
+  ) => void;
+  handleDeleteTodo: (
+    todoId: number,
+    updateState?: VoidFunction
+  ) => VoidFunction;
+  handleUpdateTodo: (todo: Todo, updateState?: VoidFunction) => VoidFunction;
 }
 export const TodosContext = createContext<ITodosContext>({
   todos: [],
   setTodos: noop,
   tempTodo: null,
-  setTempTodo: noop,
   todosInProcess: [],
-  setTodosInProcess: noop,
   filter: FilterStatus.ALL,
-  handleFilter: () => noop,
   errorMessage: TodosError.NONE,
   handleErrorMessage: () => noop,
+  handleFilter: () => noop,
+  handleAddTodo: noop,
+  handleDeleteTodo: () => noop,
+  handleUpdateTodo: () => noop,
 });
 
 interface Props {
@@ -43,36 +54,97 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
 
   const handleErrorMessage = (message: TodosError) => () => {
     setErrorMessage(message);
+
+    setTimeout(() => {
+      setErrorMessage(TodosError.NONE);
+    }, 3000);
   };
 
   const handleFilter = (filterStatus: FilterStatus) => () => {
     setFilter(filterStatus);
   };
 
-  useEffect(() => {
-    let timer = 0;
+  const handleDeleteTodo = (
+    todoId: number, updateState?: VoidFunction,
+  ) => () => {
+    setTodosInProcess(prevTodosInProcess => [...prevTodosInProcess, todoId]);
+    deleteTodo(todoId)
+      .then(() => setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId)))
+      .catch(handleErrorMessage(TodosError.DELETE_TODO))
+      .finally(() => {
+        setTodosInProcess(prevIds => prevIds
+          .filter(processId => processId !== todoId));
+        updateState?.();
+      });
+  };
 
-    if (errorMessage) {
-      timer = window.setTimeout(() => {
-        setErrorMessage(TodosError.NONE);
-      }, 3000);
+  const handleUpdateTodo = (
+    todo: Todo,
+    updateState?: (title?: string) => void,
+  ) => () => {
+    const { id, ...restTodo } = todo;
+
+    setTodosInProcess(prevTodosInProcess => [...prevTodosInProcess, id]);
+
+    updateTodo(
+      id, restTodo,
+    )
+      .then(updatedTodo => {
+        setTodos(
+          prevTodos => prevTodos.map(t => (t.id === id ? updatedTodo : t)),
+        );
+        updateState?.(updatedTodo.title);
+      })
+      .catch(() => {
+        handleErrorMessage(TodosError.UPDATE_TODO);
+      })
+      .finally(() => {
+        setTodosInProcess(prevIds => prevIds
+          .filter(processId => processId !== id));
+      });
+  };
+
+  const handleAddTodo = (
+    query: string,
+    setQuery: Dispatch<SetStateAction<string>>,
+  ) => {
+    if (!query.trim()) {
+      handleErrorMessage(TodosError.EMPTY_TITLE)();
+
+      return;
     }
 
-    return () => clearTimeout(timer);
-  }, [errorMessage]);
+    setTempTodo({
+      id: 0,
+      userId: USER_ID,
+      completed: false,
+      title: query.trim(),
+    });
+
+    addTodo(query.trim())
+      .then(response => {
+        setTodos(prevTodos => [...prevTodos, response]);
+        setQuery('');
+      })
+      .catch((handleErrorMessage(TodosError.ADD_TODO)))
+      .finally(() => {
+        setTempTodo(null);
+      });
+  };
 
   return (
     <TodosContext.Provider value={{
       todos,
       setTodos,
       tempTodo,
-      setTempTodo,
       todosInProcess,
-      setTodosInProcess,
       filter,
       handleFilter,
       errorMessage,
       handleErrorMessage,
+      handleAddTodo,
+      handleDeleteTodo,
+      handleUpdateTodo,
     }}
     >
       {children}

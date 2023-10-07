@@ -1,8 +1,7 @@
 import cn from 'classnames';
 import useTodosContext from '../../contexts/useTodosContext';
-import { FilterStatus, TodosError } from '../../constants';
+import { FilterStatus } from '../../constants';
 import { getActiveTodos, getCompletedTodos } from '../../utils';
-import { deleteTodo } from '../../api/todos';
 
 const filterLinks = [
   {
@@ -25,11 +24,9 @@ const filterLinks = [
 const Footer = () => {
   const {
     todos,
-    setTodos,
     filter,
     handleFilter,
-    handleErrorMessage,
-    setTodosInProcess,
+    handleDeleteTodo,
   } = useTodosContext();
 
   const activeTodos = getActiveTodos(todos);
@@ -38,15 +35,8 @@ const Footer = () => {
   const removeCompletedTodos = () => {
     const completedTodosIds = getCompletedTodos(todos).map(t => t.id);
 
-    setTodosInProcess(completedTodosIds);
-
-    Promise
-      .all(completedTodosIds
-        .map(id => deleteTodo(id)))
-      .then(() => setTodos(prevTodos => prevTodos
-        .filter((todo) => !completedTodosIds.includes(todo.id))))
-      .catch(handleErrorMessage(TodosError.DELETE_TODO))
-      .finally(() => setTodosInProcess([]));
+    completedTodosIds
+      .forEach(id => handleDeleteTodo(id)());
   };
 
   return (
