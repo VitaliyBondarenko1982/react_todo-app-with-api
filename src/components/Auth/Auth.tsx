@@ -21,9 +21,7 @@ const Auth = () => {
     event.preventDefault();
 
     if (isRegister) {
-      createUser(formInputs).then(res => {
-        setUser(res);
-      });
+      createUser(formInputs).then(res => setUser(res));
 
       return;
     }
