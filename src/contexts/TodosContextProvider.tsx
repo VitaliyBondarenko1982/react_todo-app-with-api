@@ -1,16 +1,19 @@
 import {
   createContext, Dispatch, FC, ReactNode, SetStateAction, useState,
 } from 'react';
-import { TempTodo, Todo } from '../types';
+import { TempTodo, Todo, User } from '../types';
 import { FilterStatus, TodosError } from '../constants';
 import { noop } from '../utils';
 import {
-  addTodo, deleteTodo, updateTodo, USER_ID,
+  addTodo, deleteTodo, updateTodo,
 } from '../api/todos';
+import { useLocalStorage } from '../hooks';
 
 export interface ITodosContext {
   todos: Todo[];
   setTodos: Dispatch<SetStateAction<Todo[]>>;
+  user: User | null;
+  setUser: Dispatch<SetStateAction<User | null>>;
   tempTodo: TempTodo;
   todosInProcess: number[];
   filter: FilterStatus;
@@ -31,6 +34,8 @@ export const TodosContext = createContext<ITodosContext>({
   todos: [],
   setTodos: noop,
   tempTodo: null,
+  user: null,
+  setUser: noop,
   todosInProcess: [],
   filter: FilterStatus.ALL,
   errorMessage: TodosError.NONE,
@@ -51,6 +56,7 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
   const [todosInProcess, setTodosInProcess] = useState<number[]>([]);
   const [filter, setFilter] = useState<FilterStatus>(FilterStatus.ALL);
   const [errorMessage, setErrorMessage] = useState<TodosError>(TodosError.NONE);
+  const [user, setUser] = useLocalStorage<User | null>('user', null);
 
   const handleErrorMessage = (message: TodosError) => () => {
     setErrorMessage(message);
@@ -108,6 +114,10 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
     query: string,
     setQuery: Dispatch<SetStateAction<string>>,
   ) => {
+    if (!user) {
+      return;
+    }
+
     if (!query.trim()) {
       handleErrorMessage(TodosError.EMPTY_TITLE)();
 
@@ -116,12 +126,12 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
 
     setTempTodo({
       id: 0,
-      userId: USER_ID,
+      userId: user.id,
       completed: false,
       title: query.trim(),
     });
 
-    addTodo(query.trim())
+    addTodo(query.trim(), user.id)
       .then(response => {
         setTodos(prevTodos => [...prevTodos, response]);
         setQuery('');
@@ -136,6 +146,8 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
     <TodosContext.Provider value={{
       todos,
       setTodos,
+      user,
+      setUser,
       tempTodo,
       todosInProcess,
       filter,

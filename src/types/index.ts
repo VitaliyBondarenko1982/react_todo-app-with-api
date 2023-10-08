@@ -6,3 +6,9 @@ export interface Todo {
 }
 
 export type TempTodo = Todo | null;
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+}
