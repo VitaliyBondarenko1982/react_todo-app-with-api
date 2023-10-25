@@ -69,12 +69,14 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
   ) => () => {
     setTodosInProcess(prevTodosInProcess => [...prevTodosInProcess, todoId]);
     deleteTodo(todoId)
-      .then(() => setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId)))
+      .then(() => {
+        setTodos(prevTodos => prevTodos.filter(t => t.id !== todoId));
+        updateState?.();
+      })
       .catch(handleErrorMessage(TodosError.DELETE_TODO))
       .finally(() => {
         setTodosInProcess(prevIds => prevIds
           .filter(processId => processId !== todoId));
-        updateState?.();
       });
   };
 
@@ -95,9 +97,7 @@ const TodosContextProvider: FC<Props> = ({ children }) => {
         );
         updateState?.(updatedTodo.title);
       })
-      .catch(() => {
-        handleErrorMessage(TodosError.UPDATE_TODO);
-      })
+      .catch(handleErrorMessage(TodosError.UPDATE_TODO))
       .finally(() => {
         setTodosInProcess(prevIds => prevIds
           .filter(processId => processId !== id));
